@@ -11,63 +11,72 @@ import {
   Routes,
   Route,
 } from "react-router-dom";
-
+import { db } from './firebase-config';
+import { addDoc, collection, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
 
 
 function App() {
-  let initTodo;
-  if (localStorage.getItem("todos") === null) {
-    initTodo = [];
-  }
-  else {
-    initTodo = JSON.parse(localStorage.getItem("todos"))
-  }
+  const userCollectionRef = collection(db, "todos");
+  const [NewTask, setNewTask] = useState("");
+  const [NewUrg, setNewUrg] = useState("");
+  const [todos, settodos] = useState([]);
 
-  const onDelete = (todo) => {
-    setTodos(todos.filter((e) => {
-      return e !== todo;
-    }))
-    localStorage.setItem("todos", JSON.stringify(todos));
-  }
+  const creatUser = async () => {
+    await addDoc(userCollectionRef, { SNo: todos.length + 1, Task: NewTask, Urgency: NewUrg });
+    console.log(NewTask, NewUrg)
+  };
 
-  const addTodo = (title, urg) => {
-    console.log("I am adding this todo", title, urg);
-    let sno = 1;
-    if (todos.length === 0) {
-      sno = 1
+
+  const updateUser = async (id, Urgency) => {
+    if (Urgency === "Urgent") {
+      const todoDoc = doc(db, "todos", id);
+      // console.log(todoDoc);
+      const newFields = { Urgency: "Not Urgent" };
+      await updateDoc(todoDoc, newFields);
     }
     else {
-      sno = todos[todos.length - 1].sno + 1;
+      const todoDoc = doc(db, "todos", id);
+      const newFields = { Urgency: "Urgent" };
+      await updateDoc(todoDoc, newFields);
     }
-    const myTodo = {
-      sno: sno,
-      title: title,
-      urgency: urg
-    }
-    setTodos([...todos, myTodo]);
-    console.log(myTodo);
-  }
+  };
 
-  const [todos, setTodos] = useState(initTodo);
+
+
+  const deleteUser = async (id) => {
+    const todoDoc = doc(db, "todos", id);
+    await deleteDoc(todoDoc);
+  };
+
   useEffect(() => {
-    localStorage.setItem("todos", JSON.stringify(todos));
-  }, [todos])
+    const gettodos = async () => {
+      const data = await getDocs(userCollectionRef)//get all documents from specific collection
+      settodos(data.docs.map((doc) => ({ ...doc.data(), id: doc.id })));
+    };
+
+    gettodos()
+  }, [creatUser, updateUser])
+
 
   return (
     <>
-      <BrowserRouter>
-        <Header title={"My ToDo list"} aboutSection={true} />
-        <Routes>
-          <Route path="/" element={
-            <>
-              <AddTodo addTodo={addTodo} />
-              <Todos todos={todos} onDelete={onDelete} />
-            </>
-          } />
-          <Route path="/about" element={<About />} />
-        </Routes>
-        <Footer />
-      </BrowserRouter>
+      <div className="App">
+        {/* <input type="number" placeholder="Sno.." /> */}
+        <input type="text" placeholder="Task.." onChange={(e) => { setNewTask(e.target.value); }} />
+        <input type="text" placeholder="Urgency.." onChange={(e) => { setNewUrg(e.target.value); }} />
+        <button onClick={creatUser}>Create User</button>
+        {todos.map((todo) => {
+          return <div>
+            <p>SNo: {todo.SNo}</p>
+            <p>Task: {todo.Task}</p>
+            <p>Urgency: {todo.Urgency}</p>
+            <button onClick={() => updateUser(todo.id, todo.Urgency)} key={todo.id}>Update(Urgent/Not Urgent)</button>
+            {/* <p> {console.log(todo.Urgency)}</p> */}
+            <button onClick={() => deleteUser(todo.id)}>Delete</button>
+            <br />
+          </div>
+        })}
+      </div>
     </>
   );
 }
